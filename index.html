@@ -849,22 +849,99 @@ function setTF(el){
 
 // ── TradingView — Android intent ───────────────────────────────────────────
 function openTV(sym){
-  const nse='NSE:'+sym;
-  const enc=encodeURIComponent(nse);
-  const chart='https://in.tradingview.com/chart/?symbol='+enc;
-  const isA=/android/i.test(navigator.userAgent);
-  const isI=/iphone|ipad|ipod/i.test(navigator.userAgent);
-  if(isA){
-    window.location.href='intent://chart/?symbol='+enc+
-      '#Intent;scheme=tradingview;package=com.tradingview.tradingviewapp;'+
-      'action=android.intent.action.VIEW;'+
-      'S.browser_fallback_url='+encodeURIComponent(chart)+';end';
-  }else if(isI){
-    window.location.href='tradingview://chart/?symbol='+nse;
-    setTimeout(()=>window.open(chart,'_blank'),1500);
-  }else{
-    window.open(chart,'_blank');
-  }
+  // Show bottom sheet with options
+  showTVSheet(sym);
+}
+
+function showTVSheet(sym){
+  const existing = document.getElementById('tvSheet');
+  if(existing) existing.remove();
+
+  const nse = 'NSE:' + sym;
+  const enc = encodeURIComponent(nse);
+  const webUrl = 'https://in.tradingview.com/chart/?symbol=' + enc;
+  const appUrl = 'tradingview://chart/?symbol=' + nse;
+  const intentUrl = 'intent://chart/?symbol=' + enc +
+    '#Intent;scheme=tradingview;package=com.tradingview.tradingviewapp;' +
+    'S.browser_fallback_url=' + encodeURIComponent(webUrl) + ';end';
+
+  const sheet = document.createElement('div');
+  sheet.id = 'tvSheet';
+  sheet.style.cssText = `
+    position:fixed;inset:0;z-index:999;
+    background:rgba(0,0,0,.75);
+    display:flex;align-items:flex-end;
+    font-family:'Segoe UI',sans-serif;
+  `;
+  sheet.innerHTML = `
+    <div style="background:#0d1117;border-radius:16px 16px 0 0;width:100%;padding:20px 20px calc(20px + env(safe-area-inset-bottom));border-top:1px solid #1e2d3d;">
+      <div style="width:36px;height:4px;background:#2d3f55;border-radius:2px;margin:0 auto 16px;"></div>
+      <div style="font-size:13px;color:#64748b;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;">Open Chart</div>
+      <div style="font-size:17px;font-weight:900;color:#fff;margin-bottom:16px;">${sym} · NSE</div>
+
+      <!-- Open in TradingView App -->
+      <a href="${appUrl}"
+        style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#001a08;border:1px solid #00ff8833;border-radius:10px;margin-bottom:10px;text-decoration:none;cursor:pointer;">
+        <span style="font-size:24px;">📱</span>
+        <div>
+          <div style="color:#00ff88;font-size:14px;font-weight:700;">Open in TradingView App</div>
+          <div style="color:#4a5568;font-size:11px;margin-top:2px;">Tap to open directly in app</div>
+        </div>
+        <span style="margin-left:auto;color:#00ff88;font-size:18px;">→</span>
+      </a>
+
+      <!-- Open in Browser -->
+      <a href="${webUrl}" target="_blank" rel="noopener"
+        style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#0a1628;border:1px solid #1e3a5f;border-radius:10px;margin-bottom:10px;text-decoration:none;cursor:pointer;">
+        <span style="font-size:24px;">🌐</span>
+        <div>
+          <div style="color:#3b82f6;font-size:14px;font-weight:700;">Open in Browser</div>
+          <div style="color:#4a5568;font-size:11px;margin-top:2px;">TradingView SuperChart</div>
+        </div>
+        <span style="margin-left:auto;color:#3b82f6;font-size:18px;">→</span>
+      </a>
+
+      <!-- Copy Symbol -->
+      <button onclick="copySymbol('${nse}')"
+        style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#111827;border:1px solid #2d3f55;border-radius:10px;margin-bottom:16px;width:100%;cursor:pointer;text-align:left;">
+        <span style="font-size:24px;">📋</span>
+        <div>
+          <div style="color:#94a3b8;font-size:14px;font-weight:700;">Copy Symbol</div>
+          <div style="color:#4a5568;font-size:11px;margin-top:2px;">${nse} → paste in TradingView search</div>
+        </div>
+      </button>
+
+      <!-- Cancel -->
+      <button onclick="document.getElementById('tvSheet').remove()"
+        style="width:100%;padding:12px;background:#1a2535;border:1px solid #2d3f55;border-radius:10px;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.06em;">
+        CANCEL
+      </button>
+    </div>
+  `;
+
+  // Close on backdrop tap
+  sheet.addEventListener('click', e => {
+    if(e.target === sheet) sheet.remove();
+  });
+
+  document.body.appendChild(sheet);
+}
+
+function copySymbol(sym){
+  navigator.clipboard.writeText(sym).then(()=>{
+    toast('📋 Copied: ' + sym);
+    setTimeout(()=>document.getElementById('tvSheet')?.remove(), 800);
+  }).catch(()=>{
+    // Fallback
+    const el = document.createElement('textarea');
+    el.value = sym;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    toast('📋 Copied: ' + sym);
+    setTimeout(()=>document.getElementById('tvSheet')?.remove(), 800);
+  });
 }
 
 // ── Settings ───────────────────────────────────────────────────────────────
