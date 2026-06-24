@@ -89,12 +89,14 @@
 
     /* ── COL HEADERS ── */
     .col-hdr{background:var(--p1);padding:6px 14px;display:grid;grid-template-columns:2fr 1fr 0.7fr 0.7fr 0.7fr 0.7fr;gap:2px;border-bottom:1px solid var(--bdr);}
-    .col-hdr span{font-size:9px;letter-spacing:.1em;color:#64748b;text-transform:uppercase;font-weight:600;}
+    .col-hdr span{font-size:9px;letter-spacing:.1em;color:#64748b;text-transform:uppercase;font-weight:600;transition:color .15s;}
+    .col-hdr span:hover{color:#00ff88;}
+    .col-hdr span.sorted{color:#00ff88;}
     .col-hdr span:not(:first-child){text-align:right;}
 
     /* ── STOCK ROWS ── */
     .stock-list{padding-bottom:calc(65px + var(--safe-b));}
-    .srow{padding:12px 14px;display:grid;grid-template-columns:2fr 1fr 0.7fr 0.7fr 0.7fr 0.7fr;gap:2px;border-bottom:1px solid var(--p2);border-left:3px solid transparent;border-right:3px solid transparent;align-items:center;cursor:pointer;transition:all .15s;}
+    .srow{padding:14px 14px;display:grid;grid-template-columns:2fr 1fr 0.7fr 0.7fr 0.7fr 0.7fr;gap:2px;border-bottom:1px solid #1e2d3d;border-left:3px solid transparent;border-right:3px solid transparent;align-items:center;cursor:pointer;transition:all .15s;min-height:58px;}
     .srow:hover{background:var(--p3);border-right-color:var(--blue);}
     .srow:active,.srow.touched{background:var(--bdim);transform:scale(0.99);}
     .srow.r-sb{border-left-color:var(--green);}
@@ -105,7 +107,7 @@
     .srow.r-ss:hover{background:#1a0000;border-right-color:var(--red);}
     .srow.r-s{border-left-color:#f97316;}
     .srow.r-s:hover{background:#1a0800;border-right-color:#f97316;}
-    .sym-name{font-size:15px;font-weight:900;color:#ffffff;letter-spacing:.04em;text-shadow:0 0 8px rgba(255,255,255,.2);}
+    .sym-name{font-size:15px;font-weight:900;color:#ffffff;letter-spacing:.04em;}
     .sym-meta{display:flex;align-items:center;gap:4px;margin-top:2px;}
     .sig-tag{font-size:10px;padding:2px 7px;border-radius:3px;font-weight:800;letter-spacing:.08em;}
     .st-sb{background:#001a08;color:var(--green);border:1px solid #00ff8833;}
@@ -114,12 +116,12 @@
     .st-s{background:#1a0500;color:#f97316;border:1px solid #f9731633;}
     .st-w{background:#111827;color:var(--mute);border:1px solid var(--bdr);}
     .sym-sect{font-size:10px;color:#64748b;font-weight:500;}
-    .cell{font-size:12px;font-weight:700;text-align:right;}
-    .c-g{color:#00ff88;font-weight:700;}
-    .c-r{color:#ff4444;font-weight:700;}
-    .c-a{color:#f59e0b;font-weight:700;}
-    .c-m{color:#64748b;}
-    .c-w{color:#f1f5f9;font-weight:600;}
+    .cell{font-size:15px;font-weight:800;text-align:right;font-family:'Segoe UI',Arial,sans-serif;letter-spacing:.02em;}
+    .c-g{color:#00ff88;font-weight:800;font-size:15px;}
+    .c-r{color:#ff4444;font-weight:800;font-size:15px;}
+    .c-a{color:#f59e0b;font-weight:800;font-size:15px;}
+    .c-m{color:#94a3b8;font-size:15px;}
+    .c-w{color:#ffffff;font-weight:700;font-size:15px;}
 
     /* ── SENTIMENT BAR ── */
     .sent-bar{background:var(--p2);padding:7px 14px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);}
@@ -270,10 +272,10 @@
     <div class="col-hdr">
       <span>Symbol</span>
       <span style="text-align:right">LTP</span>
-      <span style="text-align:right">Chg%</span>
-      <span style="text-align:right">RSI</span>
-      <span style="text-align:right">MACD</span>
-      <span style="text-align:right">OI%</span>
+      <span style="text-align:right;cursor:pointer;" onclick="sortBy('chg')" id="hChg">Chg% <span id="arChg"></span></span>
+      <span style="text-align:right;cursor:pointer;" onclick="sortBy('rsi')" id="hRsi">RSI <span id="arRsi"></span></span>
+      <span style="text-align:right;cursor:pointer;" onclick="sortBy('macd')" id="hMacd">MACD <span id="arMacd"></span></span>
+      <span style="text-align:right;cursor:pointer;" onclick="sortBy('oiChgPct')" id="hOi">OI% <span id="arOi"></span></span>
     </div>
 
     <!-- Sentiment bar -->
@@ -418,6 +420,7 @@ const AB = 'https://apiconnect.angelbroking.com';
 let session=null, bullRows=[], bearRows=[], allRows=[];
 let mode='bull', sector='All', tf='FIFTEEN_MINUTE';
 let scanning=false, autoOn=false, notifOn=false, newOnly=true;
+let sortCol=null, sortDir='desc'; // null = default (score)
 let schedTimers=[], autoTimer=null, cdInterval=null;
 let countdown=600, cdMax=600;
 let prevBull=new Set(), prevBear=new Set();
@@ -741,7 +744,11 @@ function setScanUI(on){
 
 // ── Render ─────────────────────────────────────────────────────────────────
 function renderList(){
-  const rows=(mode==='bull'?bullRows:bearRows).filter(r=>sector==='All'||r.sector===sector);
+  let rows=(mode==='bull'?bullRows:bearRows).filter(r=>sector==='All'||r.sector===sector);
+  // Apply sort
+  if(sortCol){
+    rows=[...rows].sort((a,b)=>sortDir==='desc'?(b[sortCol]||0)-(a[sortCol]||0):(a[sortCol]||0)-(b[sortCol]||0));
+  }
   const list=$('stockList');
   if(!rows.length){
     list.innerHTML=`<div class="state-wrap"><div class="state-icon">${mode==='bull'?'📈':'📉'}</div><div class="state-title">NO ${mode==='bull'?'BULLISH':'BEARISH'} SIGNALS</div><div class="state-sub">Market may be consolidating.<br>Try 5M timeframe or rescan after next candle closes.</div></div>`;
@@ -793,6 +800,31 @@ function updateSentiment(){
   if(bullPct>=0.6){sv.style.color='var(--green)';sv.textContent='BULLISH';}
   else if(bullPct<=0.4){sv.style.color='var(--red)';sv.textContent='BEARISH';}
   else{sv.style.color='var(--amber)';sv.textContent='NEUTRAL';}
+}
+
+// ── Sort by column ────────────────────────────────────────────────────────
+function sortBy(col){
+  if(sortCol===col){
+    sortDir=sortDir==='desc'?'asc':'desc';
+  }else{
+    sortCol=col;
+    sortDir='desc';
+  }
+  // Update header arrows
+  const cols=['chg','rsi','macd','oiChgPct'];
+  const ids =['Chg', 'Rsi','Macd','Oi'];
+  cols.forEach((c,i)=>{
+    const hdr=$('h'+ids[i]);
+    const arr=$('ar'+ids[i]);
+    if(c===sortCol){
+      hdr.classList.add('sorted');
+      arr.textContent=sortDir==='desc'?' ↓':' ↑';
+    }else{
+      hdr.classList.remove('sorted');
+      arr.textContent='';
+    }
+  });
+  renderList();
 }
 
 // ── Mode, Sector, TF ───────────────────────────────────────────────────────
