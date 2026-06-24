@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-title" content="NSE Intraday"/>
   <link rel="manifest" href="manifest.json"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
-  <title>NSE Intraday v3</title>
+  <title>NSE Intraday v4</title>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     :root{
@@ -212,14 +212,14 @@
         <div class="brand-dot"></div>
         <div>
           <div class="brand-name">NSE SCREENER PRO</div>
-          <div class="brand-sub">INTRADAY · OPTIONS · LIVE · v3</div>
+          <div class="brand-sub">INTRADAY · OPTIONS · LIVE · v4</div>
         </div>
       </div>
       <div class="hdr-right">
         <div class="mkt-pill" id="mktPill">—</div>
         <div class="hdr-time" id="mktTime">—</div>
         <button class="icon-btn" id="refreshBtn" onclick="manualScan()">↻</button>
-        <button class="icon-btn" id="installBtn" onclick="installApp()" style="display:none;background:#001a08;border-color:#00ff8844;color:#00ff88;font-size:11px;padding:6px 10px;font-weight:700;letter-spacing:.04em;">⬇ Install</button>
+        <button class="icon-btn" id="installBtn" onclick="installApp()" style="display:block;background:#001a08;border-color:#00ff8844;color:#00ff88;font-size:11px;padding:6px 10px;font-weight:700;letter-spacing:.04em;">⬇ Install</button>
       </div>
     </div>
     <!-- Stat cards -->
@@ -1176,14 +1176,89 @@ window.addEventListener('appinstalled', () => {
 });
 
 async function installApp(){
-  if(!deferredPrompt){ toast('Open in Chrome browser to install', false); return; }
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
-  if(outcome === 'accepted'){
-    toast('✅ Installing app…');
-    $('installBtn').style.display = 'none';
+  if(deferredPrompt){
+    // Native install prompt available
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if(outcome === 'accepted'){
+      toast('✅ App installing…');
+      $('installBtn').style.display = 'none';
+    }
+    deferredPrompt = null;
+  } else {
+    // Show manual install instructions
+    showInstallInstructions();
   }
-  deferredPrompt = null;
+}
+
+function showInstallInstructions(){
+  const existing = document.getElementById('installSheet');
+  if(existing){ existing.remove(); return; }
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroid = /android/i.test(navigator.userAgent);
+
+  const androidSteps = `
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+      <div style="background:#00ff8822;border:1px solid #00ff8844;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:#00ff88;">1</div>
+      <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">Open this page in <strong style="color:#00ff88;">Chrome browser</strong> on your phone</div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+      <div style="background:#00ff8822;border:1px solid #00ff8844;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:#00ff88;">2</div>
+      <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">Tap the <strong style="color:#00ff88;">⋮ three dot menu</strong> at top right of Chrome</div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+      <div style="background:#00ff8822;border:1px solid #00ff8844;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:#00ff88;">3</div>
+      <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">Tap <strong style="color:#00ff88;">"Add to Home Screen"</strong> or <strong style="color:#00ff88;">"Install App"</strong></div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:20px;">
+      <div style="background:#00ff8822;border:1px solid #00ff8844;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:#00ff88;">4</div>
+      <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">Tap <strong style="color:#00ff88;">"Install"</strong> on the confirmation dialog</div>
+    </div>`;
+
+  const iosSteps = `
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+      <div style="background:#00ff8822;border:1px solid #00ff8844;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:#00ff88;">1</div>
+      <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">Open this page in <strong style="color:#00ff88;">Safari</strong> (not Chrome)</div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+      <div style="background:#00ff8822;border:1px solid #00ff8844;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:#00ff88;">2</div>
+      <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">Tap the <strong style="color:#00ff88;">Share icon ↑</strong> at the bottom of Safari</div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+      <div style="background:#00ff8822;border:1px solid #00ff8444;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:#00ff88;">3</div>
+      <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">Scroll down and tap <strong style="color:#00ff88;">"Add to Home Screen"</strong></div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:20px;">
+      <div style="background:#00ff8822;border:1px solid #00ff8844;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:#00ff88;">4</div>
+      <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">Tap <strong style="color:#00ff88;">"Add"</strong> at top right</div>
+    </div>`;
+
+  const sheet = document.createElement('div');
+  sheet.id = 'installSheet';
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;';
+  sheet.innerHTML = `
+    <div style="background:#0d1117;border-radius:20px 20px 0 0;width:100%;padding:20px 20px calc(20px + env(safe-area-inset-bottom));border-top:1px solid #1e2d3d;max-height:85vh;overflow-y:auto;">
+      <div style="width:36px;height:4px;background:#2d3f55;border-radius:2px;margin:0 auto 16px;"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <img src="icons/icon-192.png" style="width:42px;height:42px;border-radius:10px;"/>
+        <div>
+          <div style="color:#fff;font-size:15px;font-weight:800;">Install NSE Screener</div>
+          <div style="color:#4a5568;font-size:11px;margin-top:2px;">${isIOS?'iPhone / iPad':'Android · Samsung S25 Ultra'}</div>
+        </div>
+      </div>
+      ${isIOS ? iosSteps : androidSteps}
+      <div style="background:#001a08;border:1px solid #00ff8822;border-radius:10px;padding:10px 14px;margin-bottom:16px;">
+        <div style="color:#00ff88;font-size:11px;font-weight:600;">Your app URL:</div>
+        <div style="color:#64748b;font-size:11px;margin-top:4px;word-break:break-all;">${window.location.href}</div>
+      </div>
+      <button onclick="document.getElementById('installSheet').remove()"
+        style="width:100%;padding:12px;background:#1a2535;border:1px solid #2d3f55;border-radius:10px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.06em;">
+        GOT IT
+      </button>
+    </div>`;
+  sheet.addEventListener('click', e=>{ if(e.target===sheet) sheet.remove(); });
+  document.body.appendChild(sheet);
 }
 
 function showInstallBanner(){
@@ -1247,8 +1322,7 @@ function init(){
   // Countdown
   startCD();
 
-  // PWA install
-  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;});
+  // PWA install — handled by deferredPrompt above
 
   // Service Worker
   if('serviceWorker' in navigator){
