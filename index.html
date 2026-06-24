@@ -116,12 +116,12 @@
     .st-s{background:#1a0500;color:#f97316;border:1px solid #f9731633;}
     .st-w{background:#111827;color:var(--mute);border:1px solid var(--bdr);}
     .sym-sect{font-size:10px;color:#64748b;font-weight:500;}
-    .cell{font-size:15px;font-weight:800;text-align:right;font-family:'Segoe UI',Arial,sans-serif;letter-spacing:.02em;}
-    .c-g{color:#00ff88;font-weight:800;font-size:15px;}
-    .c-r{color:#ff4444;font-weight:800;font-size:15px;}
-    .c-a{color:#f59e0b;font-weight:800;font-size:15px;}
-    .c-m{color:#94a3b8;font-size:15px;}
-    .c-w{color:#ffffff;font-weight:700;font-size:15px;}
+    .cell{font-size:12px;font-weight:700;text-align:right;font-family:'Segoe UI',Arial,sans-serif;letter-spacing:.01em;}
+    .c-g{color:#00ff88;font-weight:700;}
+    .c-r{color:#ff4444;font-weight:700;}
+    .c-a{color:#f59e0b;font-weight:700;}
+    .c-m{color:#94a3b8;}
+    .c-w{color:#ffffff;font-weight:600;}
 
     /* ── SENTIMENT BAR ── */
     .sent-bar{background:var(--p2);padding:7px 14px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);}
@@ -856,6 +856,33 @@ function openTV(sym){
   showTVSheet(sym);
 }
 
+function showTVNotFound(){
+  const existing = document.getElementById('tvSheet');
+  if(existing) existing.remove();
+  const dlg = document.createElement('div');
+  dlg.id = 'tvSheet';
+  dlg.style.cssText = 'position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:20px;';
+  dlg.innerHTML = `
+    <div style="background:#0d1117;border:1px solid #ff444433;border-radius:16px;padding:24px;max-width:320px;width:100%;text-align:center;">
+      <div style="font-size:48px;margin-bottom:12px;">📱</div>
+      <div style="color:#ff4444;font-size:16px;font-weight:800;margin-bottom:8px;letter-spacing:.04em;">TradingView App Not Found</div>
+      <div style="color:#64748b;font-size:12px;line-height:1.7;margin-bottom:20px;">
+        TradingView app is not installed on your device.<br>
+        Install it from Play Store to open charts directly.
+      </div>
+      <a href="https://play.google.com/store/apps/details?id=com.tradingview.tradingviewapp" target="_blank"
+        style="display:block;padding:12px;background:#00ff88;color:#000;border-radius:8px;font-size:13px;font-weight:800;text-decoration:none;margin-bottom:10px;letter-spacing:.04em;">
+        ⬇ Install TradingView from Play Store
+      </a>
+      <button onclick="document.getElementById('tvSheet').remove()"
+        style="width:100%;padding:10px;background:#1a2535;border:1px solid #2d3f55;border-radius:8px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;">
+        CANCEL
+      </button>
+    </div>`;
+  dlg.addEventListener('click', e=>{ if(e.target===dlg) dlg.remove(); });
+  document.body.appendChild(dlg);
+}
+
 function showTVSheet(sym){
   const existing = document.getElementById('tvSheet');
   if(existing) existing.remove();
@@ -882,16 +909,16 @@ function showTVSheet(sym){
       <div style="font-size:13px;color:#64748b;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;">Open Chart</div>
       <div style="font-size:17px;font-weight:900;color:#fff;margin-bottom:16px;">${sym} · NSE</div>
 
-      <!-- Open in TradingView App — uses intent:// for Android app -->
-      <a href="${intentUrl}"
-        style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#001a08;border:1px solid #00ff8833;border-radius:10px;margin-bottom:10px;text-decoration:none;cursor:pointer;">
+      <!-- Open in TradingView App — detects if app installed -->
+      <button onclick="tryOpenTVApp('${nse}','${enc}')"
+        style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#001a08;border:1px solid #00ff8833;border-radius:10px;margin-bottom:10px;cursor:pointer;width:100%;text-align:left;">
         <span style="font-size:24px;">📱</span>
         <div>
           <div style="color:#00ff88;font-size:14px;font-weight:700;">Open in TradingView App</div>
           <div style="color:#4a5568;font-size:11px;margin-top:2px;">Opens directly in installed app</div>
         </div>
         <span style="margin-left:auto;color:#00ff88;font-size:18px;">→</span>
-      </a>
+      </button>
 
       <!-- Open in Browser — opens SuperChart in Chrome -->
       <a href="${webUrl}" target="_blank" rel="noopener"
@@ -929,6 +956,57 @@ function showTVSheet(sym){
 
   document.body.appendChild(sheet);
 }
+
+function tryOpenTVApp(nse, enc){
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const webUrl = 'https://in.tradingview.com/chart/?symbol=' + enc;
+
+  if(isAndroid){
+    // Use intent URL — if TV app not installed, browser_fallback_url fires
+    // We detect failure by checking if page becomes hidden within 2s
+    let appOpened = false;
+    const onHide = () => { appOpened = true; };
+    document.addEventListener('visibilitychange', onHide, {once:true});
+
+    // Set a flag in sessionStorage to detect fallback
+    sessionStorage.setItem('tvAppCheck','pending');
+
+    const intent = 'intent://chart/?symbol=' + enc +
+      '#Intent;scheme=tradingview;package=com.tradingview.tradingviewapp;' +
+      'S.browser_fallback_url=' + encodeURIComponent(
+        location.origin + location.pathname + '?tvfallback=1&sym=' + enc
+      ) + ';end';
+
+    window.location.href = intent;
+
+    // If app opened, page goes to background (hidden)
+    // If not, page stays visible → show "not found" after 2s
+    setTimeout(()=>{
+      document.removeEventListener('visibilitychange', onHide);
+      if(!appOpened && document.visibilityState === 'visible'){
+        showTVNotFound();
+      }
+    }, 2000);
+
+  } else if(isIOS){
+    window.location.href = 'tradingview://chart/?symbol=' + nse;
+    setTimeout(()=>{
+      if(document.visibilityState === 'visible') showTVNotFound();
+    }, 2000);
+  } else {
+    window.open(webUrl, '_blank');
+  }
+}
+
+// Check if we landed here from TV app fallback
+(function(){
+  const params = new URLSearchParams(location.search);
+  if(params.get('tvfallback')==='1'){
+    history.replaceState({}, '', location.pathname);
+    setTimeout(showTVNotFound, 500);
+  }
+})();
 
 function copySymbol(sym){
   navigator.clipboard.writeText(sym).then(()=>{
